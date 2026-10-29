@@ -68,10 +68,12 @@ void sensor_task(void* arg) {
         // PIR (bloquea hasta 50 ms en la cola; actúa como cadencia del loop)
         std::uint32_t pir_ts = 0;
         if (ctx->pir->wait_event(&pir_ts, 50)) {
-            ctx->publisher->publish_event(
+            const bool published = ctx->publisher->publish_event(
                 "sensor.pir",
                 "{\"zone\":\"default\",\"duration_s\":1}");
-            FW_LOGI(TAG, "Evento PIR publicado (ts=%u)", static_cast<unsigned>(pir_ts));
+            FW_LOGI(TAG, "Evento PIR %s (ts=%u)",
+                    published ? "publicado" : "no publicado",
+                    static_cast<unsigned>(pir_ts));
         }
 
         // Magnético
@@ -79,8 +81,10 @@ void sensor_task(void* arg) {
             const bool open = ctx->magnetic->is_open();
             const std::string payload = std::string{"{\"state\":\""}
                 + (open ? "open" : "closed") + "\"}";
-            ctx->publisher->publish_event("sensor.magnetic", payload);
-            FW_LOGI(TAG, "Evento magnético: %s", open ? "open" : "closed");
+            const bool published = ctx->publisher->publish_event("sensor.magnetic", payload);
+            FW_LOGI(TAG, "Evento magnético %s: %s",
+                    published ? "publicado" : "no publicado",
+                    open ? "open" : "closed");
         }
 
         // Tamper
@@ -88,8 +92,10 @@ void sensor_task(void* arg) {
             const bool tampered = ctx->tamper->is_tampered();
             const std::string payload = std::string{"{\"state\":\"tamper\",\"active\":"}
                 + (tampered ? "true" : "false") + "}";
-            ctx->publisher->publish_event("device.tamper", payload);
-            FW_LOGW(TAG, "Evento tamper: %s", tampered ? "ALERTA" : "ok");
+            const bool published = ctx->publisher->publish_event("device.tamper", payload);
+            FW_LOGW(TAG, "Evento tamper %s: %s",
+                    published ? "publicado" : "no publicado",
+                    tampered ? "ALERTA" : "ok");
         }
     }
 }
@@ -122,14 +128,18 @@ extern "C" void app_main() {
 
     // ── WiFi ─────────────────────────────────────────────
     fw::WifiManager wifi{config.wifi_ssid, config.wifi_password};
-    ESP_ERROR_CHECK(wifi.init());
+    if (config.wifi_ssid.empty()) {
+        FW_LOGW(TAG, "WiFi sin configurar; permanece en modo sin conexión");
+    } else {
+        ESP_ERROR_CHECK(wifi.init());
 
-    const esp_err_t wifi_err = wifi.wait_connected(30000);
-    if (wifi_err != ESP_OK) {
-        FW_LOGW(TAG, "WiFi no conectó en 30s; permanece en modo sin conexión");
-    }
-    if (wifi.connected()) {
-        FW_LOGI(TAG, "WiFi conectado");
+        const esp_err_t wifi_err = wifi.wait_connected(30000);
+        if (wifi_err != ESP_OK) {
+            FW_LOGW(TAG, "WiFi no conectó en 30s; permanece en modo sin conexión");
+        }
+        if (wifi.connected()) {
+            FW_LOGI(TAG, "WiFi conectado");
+        }
     }
 
     // ── MQTT ─────────────────────────────────────────────
@@ -154,14 +164,18 @@ extern "C" void app_main() {
             case fw::MqttState::Disconnected: FW_LOGW(TAG, "MQTT Disconnected"); break;
         }
     });
-    ESP_ERROR_CHECK(mqtt.start());
+    if (config.mqtt_uri.empty()) {
+        FW_LOGW(TAG, "MQTT sin configurar; publicaciones deshabilitadas");
+    } else {
+        ESP_ERROR_CHECK(mqtt.start());
 
-    // Esperar conexión MQTT con timeout.
-    for (int i = 0; i < 100 && !mqtt.connected(); ++i) {
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    if (!mqtt.connected()) {
-        FW_LOGE(TAG, "MQTT no conectó en 10s");
+        // Esperar conexión MQTT con timeout.
+        for (int i = 0; i < 100 && !mqtt.connected(); ++i) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        if (!mqtt.connected()) {
+            FW_LOGE(TAG, "MQTT no conectó en 10s");
+        }
     }
 
     // ── Event Publisher ──────────────────────────────────

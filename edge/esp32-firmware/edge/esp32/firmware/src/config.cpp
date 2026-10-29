@@ -14,7 +14,7 @@ Config Config::from_build() {
 #ifdef WIFI_SSID
     c.wifi_ssid = WIFI_SSID;
 #else
-    c.wifi_ssid = "Wokwi-GUEST";
+    c.wifi_ssid = "";
 #endif
 
 #ifdef WIFI_PASS
@@ -26,7 +26,7 @@ Config Config::from_build() {
 #ifdef MQTT_URI
     c.mqtt_uri = MQTT_URI;
 #else
-    c.mqtt_uri = "mqtt://broker.hivemq.com:1883";
+    c.mqtt_uri = "";
 #endif
 
 #ifdef MQTT_USERNAME
@@ -44,25 +44,25 @@ Config Config::from_build() {
 #ifdef MQTT_CLIENT_ID
     c.mqtt_client_id = MQTT_CLIENT_ID;
 #else
-    c.mqtt_client_id = "esp32-default";
+    c.mqtt_client_id = "";
 #endif
 
 #ifdef TENANT_ID
     c.tenant_id = TENANT_ID;
 #else
-    c.tenant_id = "tenant-default";
+    c.tenant_id = "";
 #endif
 
 #ifdef DEVICE_ID
     c.device_id = DEVICE_ID;
 #else
-    c.device_id = "device-default";
+    c.device_id = "";
 #endif
 
 #ifdef DEVICE_TYPE
     c.device_type = DEVICE_TYPE;
 #else
-    c.device_type = "sensor.unknown";
+    c.device_type = "";
 #endif
 
 #ifdef OTA_MANIFEST_URL

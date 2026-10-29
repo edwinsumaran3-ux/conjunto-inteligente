@@ -15,7 +15,7 @@ void test_backoff_grows_and_caps(void) {
     TEST_ASSERT_EQUAL_UINT32(100, b.next());
     TEST_ASSERT_EQUAL_UINT32(200, b.next());
     TEST_ASSERT_EQUAL_UINT32(400, b.next());
-    TEST_ASSERT_EQUAL_UINT32(500, b.next());  // capped
+    TEST_ASSERT_EQUAL_UINT32(500, b.next());
     TEST_ASSERT_EQUAL_UINT32(500, b.next());
 }
 

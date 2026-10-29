@@ -1,6 +1,6 @@
 # Trazabilidad de requisitos, ZIP y brechas del proyecto
 
-**Corte de revisión:** 2026-07-07.
+**Corte de revisión:** 2026-10-29.
 **Alcance:** dos textos compartidos en la conversación, el ZIP `conjunto_inteligente_iot_industrial.zip` y el monorepo actual. Revisión estática de archivos y validaciones puntuales; no implica que todos los servicios se hayan desplegado.
 
 ## Resumen ejecutivo
@@ -40,7 +40,7 @@ El ZIP no es un sistema punta a punta listo para añadir sin cambios: es una pro
 1. **Configuración MQTT de producción:** el cliente MQTT ESP-IDF no adjuntaba verificación de certificado. Se endureció el cliente para adjuntar el CA bundle al usar `mqtts://` y rechazar `mqtt://` en release. Release también se detiene si aún usa credenciales de ejemplo. Esto no configura mTLS ni establece identidad única por nodo.
 2. **Ciclo de arranque:** el firmware reiniciaba si Wi-Fi no aparecía en 30 segundos. Ahora permanece sin conexión y continúa su flujo local; como no hay outbox persistente en ESP32, los eventos que no logra publicar aún pueden perderse.
 3. **NVS:** el arranque borraba automáticamente toda la partición NVS ante `NO_FREE_PAGES`/`NEW_VERSION_FOUND`. Ahora queda detenido sin destruir configuración; la recuperación requiere procedimiento explícito.
-4. **Particiones/hardware:** el mapa de particiones actual termina en `0x600000` (6 MiB). La configuración observada reportó 2 MiB y la placa genérica PlatformIO indica 4 MiB. El release con Secure Boot V2 generó selección V1 y falló con `Secure Boot v1 is not supported`. También falla el perfil de desarrollo al buscar `signature_verification_key.bin.S`, que no está disponible. No se generó ni usó una clave; no se flasheó ningún chip. La configuración de particiones/efuses no debe tocarse hasta conocer módulo, revisión y flash reales.
+4. **Particiones/Windows:** la configuración anterior mezclaba un mapa de 6 MiB, el valor de 2 MiB de `sdkconfig` y los 4 MiB predeterminados de la placa PlatformIO. Además, `^6.7.0` resolvió a `espressif32@6.13.0`, y un `sdkconfig` release local ignorado persistía Secure Boot V1. Se fijó la plataforma en `6.13.0`, se creó el board local de 2 MiB, se aisló el `sdkconfig` release en `.pio/` y se separaron particiones de desarrollo y release; ambas tablas validan contra 2 MiB. El build dev pasa y su imagen debug ocupa 1,282,457 bytes, por lo que no cabe en una ranura OTA release de 851,968 bytes. El build release se detiene antes de compilar porque el `sdkconfig` fresco selecciona `ESP32_REV_MIN=0` y Secure Boot V1; falta la revisión real, necesaria para seleccionar V2 RSA. La flash de 2 MiB fue informada, aún no leída físicamente. No se generó ni usó una clave ni se flasheó hardware.
 5. **Flujo OTA:** `src/ota_manager.cpp` aún no procesa el manifiesto JSON descrito por `ota_manager.hpp`; el propio código pospone la validación de versión/hash/manifiesto. La firma de imagen debe validarse con la clave y perfil de Secure Boot reales antes de aceptar OTA.
 6. **Pérdida de datos en nodo:** el gateway almacena/reintenta después de recibir mensajes, pero el nodo no tiene cola durable confirmada. La arquitectura debe resolver tamaño de cola, partición, ACK, secuencia durable, retención y recuperación antes de declarar store-and-forward de extremo a extremo.
 

@@ -14,13 +14,22 @@ compatibles con el contrato `Event` del Edge Gateway.
 - PlatformIO Core (`.venv/Scripts/python.exe -m pip install -r requirements-dev.txt` en Windows)
 - ESP-IDF 5.1 (PlatformIO lo instala automáticamente)
 - Hardware: ESP32-WROOM-32 o compatible
-- Broker MQTT accesible (Mosquitto local del Bloque 3 o broker público de pruebas)
+- Broker MQTT privado accesible por TLS; no se usa un broker público por defecto.
+
+PlatformIO queda fijado en `espressif32@6.13.0` para evitar que Windows resuelva una
+versión diferente de plataforma. El board local `esp32dev_2mb` aplica los 2 MB informados
+en desarrollo, release y Wokwi, en vez de heredar los 4 MB predeterminados de `esp32dev`.
+Desarrollo usa una partición de aplicación grande para pruebas por USB; release conserva
+dos ranuras OTA de 832 KiB cada una y 256 KiB de almacenamiento. La compilación comprueba
+si el binario cabe en el perfil elegido. Antes de flashear, lee la flash y revisión reales
+de la placa; el tamaño informado aún no se ha confirmado por hardware.
 
 Para crear un entorno Python aislado en Windows:
 
 ```powershell
 py -3.11 -m venv .venv
 .\\.venv\\Scripts\\python.exe -m pip install -r requirements-dev.txt
+$env:PYTHONUTF8 = '1'
 ```
 
 ## Estructura
@@ -37,9 +46,9 @@ py -3.11 -m venv .venv
 ## Compilar
 
 ```bash
-# Copia el template local (no uses sus valores de ejemplo en producción)
+# Copia el template local, agrega configuración real y guarda el archivo solo localmente
 Copy-Item include/secrets.example.h include/secrets.h
-# Edita include/secrets.h con configuración del entorno
+# Rellena include/secrets.h; vacío significa que Wi-Fi/MQTT permanecen desconectados.
 
 # Compilar
 .\.venv\Scripts\platformio.exe run -e esp32dev
@@ -49,9 +58,18 @@ $env:SECURE_BOOT_SIGNING_KEY = 'C:\ruta\segura\secure_boot_signing.pem'
 .\.venv\Scripts\platformio.exe run -e esp32dev-release
 ```
 
-El perfil `esp32dev-release` exige una clave de firma externa y URI `mqtts://`, credenciales y una identidad de dispositivo configurada en `secrets.h`. Configura MQTT TLS con verificación del CA bundle. Nunca publiques la clave, credenciales ni `secrets.h`.
+El perfil `esp32dev-release` usa un `sdkconfig` aislado bajo `.pio/` y exige Secure Boot V2,
+una clave de firma externa, URI `mqtts://`, credenciales e identidad de dispositivo en
+`secrets.h`. Configura MQTT TLS con verificación del CA bundle. Nunca publiques claves,
+credenciales ni `secrets.h`.
 
-El perfil de release **no está certificado ni validado en hardware**. No lo flashees hasta confirmar el modelo/revisión del ESP32, flash real, particiones, clave y procedimiento de fábrica. El build local revisado se detiene por Secure Boot V1 seleccionado en vez de V2; ver [brechas y arquitectura de hardware](../../../../../docs/HARDWARE_REFERENCE_ARCHITECTURE.md).
+El perfil de release **no está listo para firmar ni certificado en hardware**. Su
+configuración aislada selecciona Secure Boot V1 con la revisión mínima predeterminada y
+ESP-IDF detiene el build (`Secure Boot v1 is not supported`). Secure Boot V2 RSA requiere
+ESP32 clásico revisión 3 o posterior; no se debe elevar la revisión mínima para ocultar el
+bloqueo. Confirma el modelo/revisión del chip y el proceso autorizado de firma antes de
+habilitar el release o flashear. Ver
+[brechas y arquitectura de hardware](../../../../../docs/HARDWARE_REFERENCE_ARCHITECTURE.md).
 
 ## Flashear
 
@@ -68,6 +86,13 @@ pio device monitor -e esp32dev -b 115200
 ```bash
 # Tests unitarios nativos (C++ puro)
 pio test -e native
+```
+
+En Windows, los tests nativos requieren GCC de MSYS2 UCRT64 en `PATH`:
+
+```powershell
+$env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
+.\.venv\Scripts\platformio.exe test -e native
 ```
 
 ## Probar con Wokwi
@@ -128,7 +153,10 @@ Antes de aplicarlo en hardware real, verificar custodia de claves y tener un chi
 
 El flujo de descarga OTA actual todavía no valida un manifiesto de versión/hash/firma ni aplica una política completa de anti-downgrade. La verificación TLS y la firma de imagen son controles distintos. Hasta cerrar y probar el flujo con el proveedor de firma y la placa objetivo, OTA de producción sigue bloqueada. NVS encryption y una cola persistente local del nodo tampoco están habilitadas.
 
-`partitions.csv` llega a offset `0x600000` (6 MiB); no cabe en una configuración de 4 MiB. No cambies tamaños sin medir la flash real y calcular tamaño de imagen, OTA y almacenamiento.
+`partitions.csv` termina en `0x200000` (2 MiB) y reserva una app grande para desarrollo.
+`partitions.release.csv` reserva dos apps OTA de 832 KiB cada una y 256 KiB de
+almacenamiento. No flashees otra capacidad ni un módulo distinto sin verificar la flash
+física y el tamaño de la imagen.
 
 ## Pines por defecto
 

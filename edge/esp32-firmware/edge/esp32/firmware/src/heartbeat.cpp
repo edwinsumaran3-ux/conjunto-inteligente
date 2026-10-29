@@ -52,9 +52,12 @@ void HeartbeatTask::run() {
 
         const std::uint32_t free_heap = esp_get_free_heap_size();
 
-        (void)publisher_.publish_heartbeat(battery_mv, rssi, uptime_s, free_heap);
-        FW_LOGI(TAG, "Heartbeat enviado: rssi=%d uptime=%us free_heap=%u",
+        const bool sent =
+            publisher_.publish_heartbeat(battery_mv, rssi, uptime_s, free_heap);
+        if (sent) {
+            FW_LOGI(TAG, "Heartbeat enviado: rssi=%d uptime=%us free_heap=%u",
                 rssi, uptime_s, free_heap);
+        }
 
         vTaskDelay(pdMS_TO_TICKS(period_s_ * 1000));
     }

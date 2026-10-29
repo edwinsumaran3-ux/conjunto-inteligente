@@ -2,7 +2,6 @@
 #include <cstring>
 #include <string>
 
-// Generación de ID sin depender de ESP-IDF.
 #include "event_id.hpp"
 
 void test_event_id_is_unique_for_counter(void) {
@@ -19,7 +18,6 @@ void test_event_id_deterministic(void) {
 
 void test_event_id_format(void) {
     const auto id = fw::EventIdGenerator::generate("esp32-014", 0xABCDEF, 0x1234);
-    // esperado: esp32-01-00ABCDEF-1234
     TEST_ASSERT_EQUAL_STRING("esp32-01-00ABCDEF-1234", id.c_str());
 }
 

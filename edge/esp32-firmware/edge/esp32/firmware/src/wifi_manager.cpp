@@ -5,24 +5,31 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 
 #include "logging.hpp"
+#include "backoff.hpp"
 
 namespace fw {
 
 namespace {
 constexpr const char* TAG = "wifi";
 constexpr EventBits_t WIFI_CONNECTED_BIT = BIT0;
-constexpr EventBits_t WIFI_FAIL_BIT = BIT1;
 
 EventGroupHandle_t g_event_group = nullptr;
+esp_timer_handle_t g_retry_timer = nullptr;
+Backoff g_retry_backoff{1000, 30000};
+std::uint32_t g_retry_count = 0;
 
-// Contador de reintentos del stack WiFi.
-int g_retry_count = 0;
-constexpr int MAX_RETRY = 10;
+void retry_connect(void*) {
+    const esp_err_t err = esp_wifi_connect();
+    if (err != ESP_OK) {
+        FW_LOGW(TAG, "No se pudo iniciar reconexión WiFi: %s", esp_err_to_name(err));
+    }
+}
 }  // namespace
 
 WifiManager::WifiManager(std::string ssid, std::string password)
@@ -33,6 +40,16 @@ WifiManager::~WifiManager() = default;
 esp_err_t WifiManager::init() {
     if (g_event_group == nullptr) {
         g_event_group = xEventGroupCreate();
+    }
+    if (g_retry_timer == nullptr) {
+        const esp_timer_create_args_t retry_timer_args{
+            .callback = &retry_connect,
+            .arg = nullptr,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "wifi_retry",
+            .skip_unhandled_events = true,
+        };
+        ESP_ERROR_CHECK(esp_timer_create(&retry_timer_args, &g_retry_timer));
     }
 
     ESP_ERROR_CHECK(esp_netif_init());
@@ -67,9 +84,9 @@ esp_err_t WifiManager::init() {
 esp_err_t WifiManager::wait_connected(std::uint32_t timeout_ms) {
     const EventBits_t bits = xEventGroupWaitBits(
         g_event_group,
-        WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+        WIFI_CONNECTED_BIT,
         pdFALSE,
-        pdFALSE,
+        pdTRUE,
         pdMS_TO_TICKS(timeout_ms));
 
     if (bits & WIFI_CONNECTED_BIT) {
@@ -87,22 +104,34 @@ void WifiManager::event_handler(void* arg, const char* event_base, int32_t event
             esp_wifi_connect();
         } else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
             self->connected_ = false;
+            xEventGroupClearBits(g_event_group, WIFI_CONNECTED_BIT);
             if (self->cb_) self->cb_(false, self->cb_user_);
 
-            if (g_retry_count < MAX_RETRY) {
-                esp_wifi_connect();
-                ++g_retry_count;
-                FW_LOGW(TAG, "Reconexión WiFi, intento %d", g_retry_count);
+            ++g_retry_count;
+            const auto retry_delay_ms = g_retry_backoff.next();
+            if (esp_timer_is_active(g_retry_timer)) {
+                ESP_ERROR_CHECK(esp_timer_stop(g_retry_timer));
+            }
+            const esp_err_t timer_err = esp_timer_start_once(
+                g_retry_timer,
+                static_cast<std::uint64_t>(retry_delay_ms) * 1000ULL);
+            if (timer_err != ESP_OK) {
+                FW_LOGE(TAG, "No se pudo programar reconexión WiFi: %s",
+                        esp_err_to_name(timer_err));
             } else {
-                xEventGroupSetBits(g_event_group, WIFI_FAIL_BIT);
-                FW_LOGE(TAG, "WiFi falló tras %d intentos", MAX_RETRY);
+                FW_LOGW(TAG, "Reconexión WiFi #%u en %u ms",
+                        static_cast<unsigned>(g_retry_count),
+                        static_cast<unsigned>(retry_delay_ms));
             }
         }
     } else if (std::strcmp(event_base, IP_EVENT) == 0 && event_id == IP_EVENT_STA_GOT_IP) {
         auto* event = static_cast<ip_event_got_ip_t*>(event_data);
         FW_LOGI(TAG, "IP obtenida: " IPSTR, IP2STR(&event->ip_info.ip));
         g_retry_count = 0;
-        xEventGroupClearBits(g_event_group, WIFI_FAIL_BIT);
+        g_retry_backoff.reset();
+        if (esp_timer_is_active(g_retry_timer)) {
+            ESP_ERROR_CHECK(esp_timer_stop(g_retry_timer));
+        }
         xEventGroupSetBits(g_event_group, WIFI_CONNECTED_BIT);
         self->connected_ = true;
         if (self->cb_) self->cb_(true, self->cb_user_);
