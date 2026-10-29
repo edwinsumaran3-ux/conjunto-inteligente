@@ -112,8 +112,16 @@ def test_full_twin_flow(client):
     assert lk.json()["name"] == "Bomba de presurización B1"
     det = client.get(f"{P}/nodes/{lk.json()['node_id']}/detail", headers=ha).json()
     assert det["ifc"]["entity_type"] == "IFCPUMP" and det["ifc"]["properties"]["Pset_ManufacturerTypeInformation.Manufacturer"] == "ACME"
+    healthy_sample = post("/telemetry/samples", {
+        "point_id": pt, "value": 55, "unit": "degC",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "source": "dashboard-health-check", "source_message_id": "dashboard-valid-sample",
+        "source_quality": "GOOD",
+    })
+    assert healthy_sample["quality"] == "VALID"
     ov = client.get(P+"/overview", headers=ha).json()
     assert ov["nodes_total"] > 30 and ov["points"]["total"] == 1 and ov["bim"]["models"] == 2 and ov["devices"]["online"] == 1
+    assert ov["points"]["good"] == 1
     assert ov["open_anomalies"] >= 1 and ov["health"]["avg"] is not None
     an = client.get(P+"/anomalies", headers=ha).json(); assert an and an[0]["node_name"] == "Bomba 1"
     assert len(client.get(f"{P}/points/{pt}/series", params={"minutes":120}, headers=ha).json()) == 9

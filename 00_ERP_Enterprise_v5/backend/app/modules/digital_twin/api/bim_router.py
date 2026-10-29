@@ -18,7 +18,7 @@ async def overview(auth: AuthContext = Depends(get_auth_context), session: Async
     pts = (await one("""SELECT count(*) total,
         count(*) FILTER (WHERE s.point_id IS NULL) never,
         count(*) FILTER (WHERE s.point_id IS NOT NULL AND now()-s.observed_at > make_interval(secs => p.stale_after_seconds)) stale,
-        count(*) FILTER (WHERE s.quality='GOOD' AND now()-s.observed_at <= make_interval(secs => p.stale_after_seconds)) good
+        count(*) FILTER (WHERE s.quality IN ('GOOD','VALID') AND now()-s.observed_at <= make_interval(secs => p.stale_after_seconds)) good
         FROM twin_points p LEFT JOIN twin_point_states s ON s.tenant_id=p.tenant_id AND s.point_id=p.id WHERE p.tenant_id=:t""")).mappings().one()
     dev = (await one("SELECT count(*) total, count(*) FILTER (WHERE status='ONLINE') online FROM twin_devices WHERE tenant_id=:t")).mappings().one()
     an = (await one("SELECT severity, count(*) c FROM operational_anomalies WHERE tenant_id=:t AND status='open' GROUP BY 1")).all()
