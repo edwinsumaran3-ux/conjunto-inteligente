@@ -5,6 +5,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_tls.h"
+#include "esp_crt_bundle.h"
 
 #include "logging.hpp"
 
@@ -21,8 +22,24 @@ MqttManager::~MqttManager() { stop(); }
 esp_err_t MqttManager::start() {
     if (client_ != nullptr) return ESP_OK;
 
+    const bool uses_tls = opts_.uri.rfind("mqtts://", 0) == 0;
+    const bool uses_plain_mqtt = opts_.uri.rfind("mqtt://", 0) == 0;
+    if (!uses_tls && !uses_plain_mqtt) {
+        FW_LOGE(TAG, "Esquema MQTT no soportado");
+        return ESP_ERR_INVALID_ARG;
+    }
+#if defined(FW_RELEASE_BUILD)
+    if (!uses_tls) {
+        FW_LOGE(TAG, "Release requiere mqtts:// con verificación del broker");
+        return ESP_ERR_INVALID_ARG;
+    }
+#endif
+
     esp_mqtt_client_config_t cfg{};
     cfg.broker.address.uri = opts_.uri.c_str();
+    if (uses_tls) {
+        cfg.broker.verification.crt_bundle_attach = esp_crt_bundle_attach;
+    }
     if (!opts_.username.empty()) {
         cfg.credentials.username = opts_.username.c_str();
         cfg.credentials.authentication.password = opts_.password.c_str();

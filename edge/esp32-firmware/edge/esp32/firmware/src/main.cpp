@@ -31,6 +31,25 @@ constexpr int PIN_PIR      = 27;
 constexpr int PIN_MAGNETIC = 26;
 constexpr int PIN_TAMPER   = 25;
 
+#if defined(FW_RELEASE_BUILD)
+bool has_release_configuration(const fw::Config& config) {
+    return !config.wifi_ssid.empty()
+        && config.wifi_ssid != "Wokwi-GUEST"
+        && !config.wifi_password.empty()
+        && config.mqtt_uri.rfind("mqtts://", 0) == 0
+        && !config.mqtt_username.empty()
+        && !config.mqtt_password.empty()
+        && !config.mqtt_client_id.empty()
+        && config.mqtt_client_id != "esp32-default"
+        && !config.tenant_id.empty()
+        && config.tenant_id != "tenant-default"
+        && !config.device_id.empty()
+        && config.device_id != "device-default"
+        && !config.device_type.empty()
+        && config.device_type != "sensor.unknown";
+}
+#endif
+
 // Contexto compartido con el task de sensores (declarado a nivel de archivo).
 struct SensorCtx {
     fw::PirSensor* pir;
@@ -83,12 +102,23 @@ extern "C" void app_main() {
     // NVS es requerida por WiFi y MQTT.
     esp_err_t nvs_err = nvs_flash_init();
     if (nvs_err == ESP_ERR_NVS_NO_FREE_PAGES || nvs_err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        nvs_err = nvs_flash_init();
+        FW_LOGE(TAG, "NVS requiere recuperación; no se borrará automáticamente");
+        while (true) {
+            vTaskDelay(pdMS_TO_TICKS(60000));
+        }
     }
     ESP_ERROR_CHECK(nvs_err);
 
     const fw::Config config = fw::Config::from_build();
+
+#if defined(FW_RELEASE_BUILD)
+    if (!has_release_configuration(config)) {
+        FW_LOGE(TAG, "Configuración de producción incompleta; firmware detenido en modo seguro");
+        while (true) {
+            vTaskDelay(pdMS_TO_TICKS(60000));
+        }
+    }
+#endif
 
     // ── WiFi ─────────────────────────────────────────────
     fw::WifiManager wifi{config.wifi_ssid, config.wifi_password};
@@ -96,11 +126,11 @@ extern "C" void app_main() {
 
     const esp_err_t wifi_err = wifi.wait_connected(30000);
     if (wifi_err != ESP_OK) {
-        FW_LOGE(TAG, "WiFi no conectó en 30s; reiniciando en 10s");
-        vTaskDelay(pdMS_TO_TICKS(10000));
-        esp_restart();
+        FW_LOGW(TAG, "WiFi no conectó en 30s; permanece en modo sin conexión");
     }
-    FW_LOGI(TAG, "WiFi conectado");
+    if (wifi.connected()) {
+        FW_LOGI(TAG, "WiFi conectado");
+    }
 
     // ── MQTT ─────────────────────────────────────────────
     fw::MqttManager::Options mqtt_opts;

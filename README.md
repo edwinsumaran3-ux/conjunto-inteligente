@@ -26,6 +26,15 @@ Plataforma SaaS multi-tenant para conjuntos residenciales, edificios y condomini
 - La validación no certifica despliegue productivo, hardware físico ni integración con proveedores externos.
 - Los nuevos jobs de PostgreSQL, API .NET, bridge y firmware en `.github/workflows/ci.yml` deben ejecutarse y revisarse en GitHub Actions; el archivo local por sí solo no certifica un pipeline exitoso.
 - La compilación release del firmware exige clave de firma y falla de forma explícita cuando falta; CI ejecuta las pruebas nativas sin usar secretos ni afirmar que el hardware fue probado.
+- El firmware ESP32 no tiene todavía un outbox persistente de nodo ni un flujo de provisionamiento industrial. El gateway conserva eventos después de recibirlos, pero no se afirma store-and-forward ante pérdida de conexión del sensor al broker.
+- El hardware objetivo, el mapa de particiones, la revisión del silicio y la flash física no están confirmados; no activar Secure Boot/flash encryption ni flashear hasta completar esa verificación.
+
+## Requisitos compartidos y arquitectura
+
+- [Trazabilidad de requisitos, revisión del ZIP y brechas](docs/PROJECT_REQUIREMENTS_TRACEABILITY.md)
+- [Arquitectura de referencia de hardware industrial](docs/HARDWARE_REFERENCE_ARCHITECTURE.md)
+- [Política operativa del agente](docs/AGENT_OPERATING_POLICY.md)
+- [Instrucciones Copilot del proyecto](.github/copilot-instructions.md)
 
 ## Desarrollo
 

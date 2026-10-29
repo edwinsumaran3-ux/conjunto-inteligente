@@ -37,19 +37,21 @@ py -3.11 -m venv .venv
 ## Compilar
 
 ```bash
-# Copia el template de secretos
-cp include/secrets.example.h include/secrets.h
-# Edita secrets.h con tus valores reales
+# Copia el template local (no uses sus valores de ejemplo en producción)
+Copy-Item include/secrets.example.h include/secrets.h
+# Edita include/secrets.h con configuración del entorno
 
 # Compilar
-pio run -e esp32dev
+.\.venv\Scripts\platformio.exe run -e esp32dev
 
 # Firmware firmado (release)
-export SECURE_BOOT_SIGNING_KEY=/ruta/a/secure_boot_signing.pem
-pio run -e esp32dev-release
+$env:SECURE_BOOT_SIGNING_KEY = 'C:\ruta\segura\secure_boot_signing.pem'
+.\.venv\Scripts\platformio.exe run -e esp32dev-release
 ```
 
-El perfil `esp32dev-release` falla si no existe la clave de firma o no se genera el binario firmado; nunca publica silenciosamente un artefacto sin firma. La clave debe provisionarse desde un gestor de secretos y no guardarse en el repositorio.
+El perfil `esp32dev-release` exige una clave de firma externa y URI `mqtts://`, credenciales y una identidad de dispositivo configurada en `secrets.h`. Configura MQTT TLS con verificación del CA bundle. Nunca publiques la clave, credenciales ni `secrets.h`.
+
+El perfil de release **no está certificado ni validado en hardware**. No lo flashees hasta confirmar el modelo/revisión del ESP32, flash real, particiones, clave y procedimiento de fábrica. El build local revisado se detiene por Secure Boot V1 seleccionado en vez de V2; ver [brechas y arquitectura de hardware](../../../../../docs/HARDWARE_REFERENCE_ARCHITECTURE.md).
 
 ## Flashear
 
@@ -119,10 +121,14 @@ Debe coincidir con el contrato `Event` que espera el Edge Gateway (Bloque 3).
 - Secure boot V2 firmado con RSA.
 - Flash encryption en modo release.
 - Deshabilitación del ROM console.
-- OTA rechaza binarios sin firma válida.
+- Requiere validar en la variante de silicio y el flujo de producción objetivo.
 
 **Advertencia:** activar secure boot y flash encryption es irreversible en el chip.
 Antes de aplicarlo en hardware real, verificar custodia de claves y tener un chip de respaldo.
+
+El flujo de descarga OTA actual todavía no valida un manifiesto de versión/hash/firma ni aplica una política completa de anti-downgrade. La verificación TLS y la firma de imagen son controles distintos. Hasta cerrar y probar el flujo con el proveedor de firma y la placa objetivo, OTA de producción sigue bloqueada. NVS encryption y una cola persistente local del nodo tampoco están habilitadas.
+
+`partitions.csv` llega a offset `0x600000` (6 MiB); no cabe en una configuración de 4 MiB. No cambies tamaños sin medir la flash real y calcular tamaño de imagen, OTA y almacenamiento.
 
 ## Pines por defecto
 
