@@ -2,3 +2,4 @@ include/secrets.h
 keys/
 .pio/
 .venv/
+sdkconfig.esp32dev-release
