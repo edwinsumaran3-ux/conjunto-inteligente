@@ -1,0 +1,1 @@
+import useSWR from"swr";import{api}from"../api/client";export default function HealthView(){const{data,error}=useSWR("health",api.health,{refreshInterval:3000});return <div className="rounded-xl border border-ops-panel2 p-5 bg-ops-panel"><h2>Salud de plataforma</h2><pre className="text-xs mt-3">{error?"API no disponible":JSON.stringify(data,null,2)}</pre></div>}

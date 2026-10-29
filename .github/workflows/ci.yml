@@ -1,0 +1,183 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  erp-python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 00_ERP_Enterprise_v5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: 00_ERP_Enterprise_v5/requirements.lock
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.lock pytest
+      - run: python -m compileall -q backend agents
+      - run: pytest -q
+
+  erp-postgres-integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 00_ERP_Enterprise_v5
+    services:
+      postgres:
+        image: postgres:16.6-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: erp_backend_ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d erp_backend_ci_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      PHASE13_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/erp_backend_ci_test
+      PHASE13_ALLOW_DATABASE_RESET: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: 00_ERP_Enterprise_v5/requirements.lock
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.lock pytest
+      - run: pytest -q backend/tests/integration --import-mode=importlib
+
+  core-api-dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet restore services/core-api-dotnet/tests/ConjuntoInteligente.CoreApi.Tests/ConjuntoInteligente.CoreApi.Tests.csproj
+      - run: dotnet build services/core-api-dotnet/src/ConjuntoInteligente.CoreApi/ConjuntoInteligente.CoreApi.csproj --configuration Release --no-restore --warnaserror
+      - run: dotnet test services/core-api-dotnet/tests/ConjuntoInteligente.CoreApi.Tests/ConjuntoInteligente.CoreApi.Tests.csproj --configuration Release --no-restore
+
+  powerbuilder-bridge-dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet restore services/powerbuilder-bridge/ConjuntoInteligente-Bloque7-PowerBuilder-Bridge/legacy/powerbuilder-admin/tests/ConjuntoInteligente.PbBridge.Tests.csproj
+      - run: dotnet build services/powerbuilder-bridge/ConjuntoInteligente-Bloque7-PowerBuilder-Bridge/legacy/powerbuilder-admin/bridge/ConjuntoInteligente.PbBridge.csproj --configuration Release --no-restore --warnaserror
+      - run: dotnet test services/powerbuilder-bridge/ConjuntoInteligente-Bloque7-PowerBuilder-Bridge/legacy/powerbuilder-admin/tests/ConjuntoInteligente.PbBridge.Tests.csproj --configuration Release --no-restore
+
+  ai-agent:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/ai-agent/conjunto-ai-block2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[test]'
+      - run: pytest -q
+
+  erp-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 00_ERP_Enterprise_v5/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: 00_ERP_Enterprise_v5/frontend/package.json
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  vigilancia:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/vigilancia-sistema
+    services:
+      postgres:
+        image: postgres:16.6-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vigilancia
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d vigilancia"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DB_DSN: postgresql://postgres:postgres@localhost:5432/vigilancia
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: integrations/vigilancia-sistema/requirements-dev.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python scripts/verify_platform.py
+      - run: python infrastructure/postgres/schema_check.py
+      - run: python infrastructure/postgres/migrate.py
+      - run: python infrastructure/postgres/migrate.py --check
+      - run: python infrastructure/postgres/migrate.py
+      # Run in separate processes: modules use legacy flat imports with overlapping names.
+      - run: pytest -q tests
+      - run: pytest -q services/agent-orchestrator/tests
+      - run: python -m pip install pip-audit
+      - run: pip-audit -r requirements.txt
+
+  edge-gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y cmake g++ libpaho-mqtt-dev libsqlite3-dev libssl-dev ninja-build
+      - run: cmake -S edge/gateway/conjunto/edge -B build-edge -G Ninja -DCMAKE_BUILD_TYPE=Debug -DEDGE_BUILD_TESTS=ON
+      - run: cmake --build build-edge --parallel 2
+      - run: ctest --test-dir build-edge --output-on-failure
+
+  esp32-firmware-native:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: edge/esp32-firmware/edge/esp32/firmware
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install platformio==6.1.18
+      - run: python -m unittest discover -s scripts/tests -v
+      - run: pio test -e native
+
+  repository-static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: mkdir -p docs && python scripts/auditoria_estatica.py
+      - run: python integrations/vigilancia-sistema/scripts/verify_platform.py

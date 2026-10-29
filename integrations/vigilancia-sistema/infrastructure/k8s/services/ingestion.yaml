@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: ingestion, namespace: vigilancia}
+spec:
+  replicas: 3
+  selector: {matchLabels: {app: ingestion}}
+  template:
+    metadata: {labels: {app: ingestion}}
+    spec:
+      containers:
+        - name: ingestion
+          image: vigilancia/ingestion:1.0.0
+          ports: [{containerPort: 8000}]
+          env:
+            - name: REDIS_HOST
+              value: redis-ha
+            - name: RABBIT_URL
+              valueFrom: {secretKeyRef: {name: rabbit, key: url}}
+          livenessProbe: {httpGet: {path: /healthz, port: 8000}, initialDelaySeconds: 5}
+          readinessProbe: {httpGet: {path: /healthz, port: 8000}}
+          resources:
+            requests: {cpu: "200m", memory: "256Mi"}
+            limits: {cpu: "1", memory: "1Gi"}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: ingestion, namespace: vigilancia}
+spec:
+  selector: {app: ingestion}
+  ports: [{port: 8000, targetPort: 8000}]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: ingestion, namespace: vigilancia}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: ingestion}
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}

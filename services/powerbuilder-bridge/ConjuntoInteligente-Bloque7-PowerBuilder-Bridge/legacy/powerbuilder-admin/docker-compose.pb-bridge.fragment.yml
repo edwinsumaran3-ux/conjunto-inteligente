@@ -1,0 +1,17 @@
+# Fragmento para añadir al docker-compose.yml de la raíz
+pb-bridge:
+  build:
+    context: ./legacy/powerbuilder-admin/bridge
+    dockerfile: Dockerfile
+  environment:
+    ASPNETCORE_ENVIRONMENT: Development
+    PB__ServiceToken: "dev-token-not-for-production-0000"
+    Core__BaseUrl: "http://api:5000"
+    Core__ServiceToken: ""
+    Core__TenantId: "conjunto-abc-001"
+    Otel__Endpoint: "http://otel-collector:4317"
+  ports:
+    - "5100:5100"
+  depends_on:
+    - api
+    - otel-collector

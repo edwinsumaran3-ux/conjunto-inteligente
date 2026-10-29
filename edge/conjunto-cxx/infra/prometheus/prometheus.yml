@@ -1,0 +1,56 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+  external_labels:
+    cluster: conjunto
+    env: development
+
+scrape_configs:
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  - job_name: otel-collector-internal
+    static_configs:
+      - targets: ["otel-collector:8888"]
+
+  - job_name: api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:5000"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: "conjunto-api"
+
+  - job_name: ai
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["ai:8000"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: "conjunto-ai"
+
+  - job_name: pb-bridge
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["pb-bridge:5100"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: "conjunto-pb-bridge"
+
+  - job_name: edge-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["edge:8080"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: "conjunto-edge"

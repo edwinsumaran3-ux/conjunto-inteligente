@@ -1,0 +1,4 @@
+# Proveedores comerciales OPCIONALES (la ruta de coste mínimo es Ollama local, que no necesita SDK).
+-r requirements.txt
+openai==1.58.1
+anthropic==0.42.0

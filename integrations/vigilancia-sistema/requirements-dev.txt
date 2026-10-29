@@ -1,0 +1,19 @@
+# Herramientas de desarrollo y verificación (no se instalan en imágenes de producción).
+-c constraints.txt
+-r services/ingestion/requirements.txt
+-r services/agent-orchestrator/requirements.txt
+-r services/worker-pool/requirements.txt
+-r services/correlation-engine/requirements.txt
+-r services/incident-core/requirements.txt
+-r services/notification-service/requirements.txt
+-r services/vision-ai/requirements.txt
+-r edge-gateway/requirements.txt
+-r shared/security/requirements.txt
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-cov==6.0.0
+jsonschema==4.23.0
+ruff==0.8.4
+mypy==1.14.0
+bandit==1.8.0
+pip-audit==2.7.3

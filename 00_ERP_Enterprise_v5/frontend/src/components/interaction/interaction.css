@@ -1,0 +1,22 @@
+.touch-action-button {
+  min-height: 64px;
+  min-width: 64px;
+  padding: 16px 22px;
+  border-radius: 16px;
+  border: 1px solid currentColor;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  touch-action: manipulation;
+}
+.touch-action-button:hover:not(:disabled), .touch-action-button:focus-visible { transform: translateY(-2px); box-shadow: 0 8px 20px rgb(0 0 0 / 18%); }
+.touch-action-button.is-selected { transform: scale(1.04); }
+.touch-action-button:disabled { cursor: not-allowed; opacity: .55; }
+.touch-action-button[data-danger] { font-weight: 800; }
+.erp-carousel { display: flex; gap: 12px; overflow: auto; padding: 12px; scroll-snap-type: both mandatory; }
+.erp-carousel--horizontal { flex-direction: row; }
+.erp-carousel--vertical { flex-direction: column; max-height: 70vh; }
+.erp-carousel__item { min-height: 72px; min-width: 180px; padding: 16px; display: flex; flex-direction: column; justify-content: center; gap: 6px; border-radius: 18px; border: 1px solid currentColor; font: inherit; text-align: start; scroll-snap-align: start; cursor: pointer; transition: transform 120ms ease, min-height 120ms ease, min-width 120ms ease; }
+.erp-carousel__item.is-expanded { min-height: 92px; min-width: 210px; transform: scale(1.03); }
+.erp-carousel__item:disabled { opacity: .5; cursor: not-allowed; }

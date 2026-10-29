@@ -1,0 +1,8 @@
+using ConjuntoInteligente.PbBridge.Contracts; using ConjuntoInteligente.PbBridge.Services;
+namespace ConjuntoInteligente.PbBridge.Middleware;
+public sealed class PbGlobalExceptionMiddleware
+{
+ private readonly RequestDelegate _next; private readonly ILogger<PbGlobalExceptionMiddleware> _log; public PbGlobalExceptionMiddleware(RequestDelegate next,ILogger<PbGlobalExceptionMiddleware> log){_next=next;_log=log;}
+ public async Task Invoke(HttpContext ctx){try{await _next(ctx);}catch(OperationCanceledException) when(ctx.RequestAborted.IsCancellationRequested){}catch(CoreUnauthorizedException ex){var status=ex.StatusCode==403?403:401;var code=status==403?PbErrorCodes.Forbidden:PbErrorCodes.Unauthorized;await WriteAsync(ctx,status,code,ex.Message);}catch(CoreRateLimitedException ex){await WriteAsync(ctx,429,PbErrorCodes.RateLimited,ex.Message);}catch(CoreHttpException ex){var code=ex.StatusCode>=500?PbErrorCodes.CoreError:PbErrorCodes.CoreUnavailable;await WriteAsync(ctx,502,code,ex.Message);}catch(TaskCanceledException){await WriteAsync(ctx,504,PbErrorCodes.CoreTimeout,"El core no respondió a tiempo.");}catch(HttpRequestException ex){_log.LogWarning(ex,"Error de red hacia el core");await WriteAsync(ctx,503,PbErrorCodes.CoreUnavailable,"El core no está disponible.");}catch(Exception ex){_log.LogError(ex,"Error no controlado en el bridge PB");await WriteAsync(ctx,500,PbErrorCodes.InternalError,"Error interno del bridge.");}}
+ private static async Task WriteAsync(HttpContext ctx,int status,string code,string message){if(ctx.Response.HasStarted)return;ctx.Response.StatusCode=status;ctx.Response.ContentType="application/json";await ctx.Response.WriteAsJsonAsync(PbResponse<object>.Failure(code,message));}
+}

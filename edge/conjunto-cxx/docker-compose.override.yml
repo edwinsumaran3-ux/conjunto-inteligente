@@ -1,0 +1,46 @@
+# Overrides para desarrollo local.
+# Se combinan automáticamente con docker-compose.yml.
+# NO se usan en producción (usa `-f docker-compose.yml -f docker-compose.prod.yml`).
+
+services:
+
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      DOTNET_USE_POLLING_FILE_WATCHER: "1"
+    volumes:
+      - ./src:/src:ro
+    command: >
+      sh -c "dotnet watch --project /src/Api/ConjuntoInteligente.Api run"
+    ports:
+      - "${API_HTTPS_PORT}:5001"
+
+  ai:
+    volumes:
+      - ./ai:/app:ro
+    command: >
+      uvicorn orchestrator.main:app
+      --host 0.0.0.0 --port 8000 --reload
+    environment:
+      AI__ENV: development
+      AI__LLM_PROVIDER: deterministic
+
+  pb-bridge:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+    volumes:
+      - ./legacy/powerbuilder-admin/bridge:/src:ro
+
+  web-admin:
+    environment:
+      VITE_USE_MOCK: "false"
+    ports:
+      - "5174:80"
+
+  edge:
+    environment:
+      EDGE__LOG_LEVEL: DEBUG
+
+  grafana:
+    environment:
+      GF_LOG_LEVEL: debug

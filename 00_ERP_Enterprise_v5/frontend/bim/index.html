@@ -1,0 +1,89 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><title>BIM Twin PRO · Centro de Mando</title></head>
+<body>
+<!-- BARRA SUPERIOR: marca, estado global real del gemelo, conexión, modelo y carga de IFC -->
+<header class="topbar">
+  <div class="brand"><span class="logo" data-ic="cube" data-size="24"></span><h1>BIM Twin <span class="badge">PRO</span></h1></div>
+  <div class="global-status" aria-live="polite">
+    <span class="status-pill success" id="pill-sensors" title="Puntos de medición registrados"><span data-ic="wifi"></span><b id="n-sensors">—</b> Sensores</span>
+    <span class="status-pill warning" id="pill-alerts" title="Anomalías abiertas de severidad media/baja"><span data-ic="warn"></span><b id="n-alerts">—</b> Alertas</span>
+    <span class="status-pill danger" id="pill-critical" title="Anomalías abiertas críticas o altas"><span data-ic="xcircle"></span><b id="n-critical">—</b> Críticas</span>
+  </div>
+  <div class="user-actions">
+    <select id="mv" class="select" title="Modelo IFC" aria-label="Modelo IFC"></select>
+    <input id="file" type="file" accept=".ifc" hidden>
+    <button id="up" class="btn primary" title="Cargar un IFC: se muestra y, con sesión, se importa al gemelo"><span data-ic="upload"></span>Cargar IFC</button>
+    <div class="conn">
+      <button id="conn-toggle" class="btn ghost" aria-expanded="false" aria-controls="conn-panel"><span data-ic="plug"></span><span id="conn-label">Conexión</span></button>
+      <div id="conn-panel" class="popover" hidden>
+        <h3>Conexión al gemelo</h3>
+        <label>API <input id="api" placeholder="vacío = mismo origen" autocomplete="off"></label>
+        <label>Tenant ID <input id="tenant" placeholder="uuid del tenant" autocomplete="off"></label>
+        <label>Correo <input id="email" autocomplete="username"></label>
+        <label>Contraseña <input id="pwd" type="password" autocomplete="current-password"></label>
+        <button id="login" class="btn primary wide">Iniciar sesión</button>
+        <div class="or"><span>o token JWT</span></div>
+        <input id="tok" type="password" placeholder="Bearer token" autocomplete="off"><button id="conn" class="btn wide">Conectar</button>
+      </div>
+    </div>
+    <div class="avatar" id="avatar" title="Sin sesión">—</div>
+  </div>
+</header>
+<div id="kpis" class="kpis" aria-label="Indicadores del gemelo"></div>
+
+<main class="workspace">
+  <!-- COLUMNA IZQUIERDA: jerarquía espacial REAL del IFC -->
+  <aside class="panel-left">
+    <div class="panel-header"><h2><span data-ic="tree"></span>Espacial</h2><span class="count" id="tree-count"></span></div>
+    <div class="searchbox"><span data-ic="search"></span><input id="tree-search" placeholder="Buscar por nombre, clase o GlobalId" aria-label="Buscar en el árbol"></div>
+    <div class="tree-container" id="ifc-tree"><div class="empty-state"><span data-ic="folder" data-size="32"></span><p>Cargando estructura del modelo…</p></div></div>
+  </aside>
+
+  <!-- COLUMNA CENTRAL: visor 3D -->
+  <section class="viewport-container" id="view">
+    <canvas id="cv" aria-label="Visor 3D del modelo BIM"></canvas>
+    <div class="viewport-overlay top-left"><div class="camera-controls" id="toolbar" role="toolbar" aria-label="Controles del visor">
+      <button class="icon-btn" data-act="home" title="Vista inicial (H)"><span data-ic="home"></span></button>
+      <button class="icon-btn" data-act="wire" title="Alámbrico (W)" aria-pressed="false"><span data-ic="wire"></span></button>
+      <button class="icon-btn" data-act="xray" title="Rayos X: muros y losas translúcidos (X)" aria-pressed="false"><span data-ic="xray"></span></button>
+      <button class="icon-btn" data-act="isolate" title="Aislar la selección (I)" aria-pressed="false"><span data-ic="isolate"></span></button>
+      <button class="icon-btn" data-act="section" title="Corte horizontal" aria-pressed="false"><span data-ic="section"></span></button>
+      <label class="section-wrap" id="section-wrap" hidden>Corte <input id="section" type="range" min="0" max="100" value="100" aria-label="Altura del plano de corte"><b id="section-val">100%</b></label>
+    </div></div>
+    <div class="viewport-overlay top-left mep-overlay"><div id="mep-layers" class="mep-layers" hidden></div></div>
+    <div class="viewport-overlay bottom-left"><div class="twin-legend"><h4>Gemelo Digital</h4>
+      <div class="legend-item"><span class="dot green"></span> Operativo</div><div class="legend-item"><span class="dot amber"></span> Alerta</div>
+      <div class="legend-item"><span class="dot red pulse"></span> Crítico (anomalía IoT)</div><div class="legend-item"><span class="dot grey"></span> Sin gemelo enlazado</div></div></div>
+    <div id="sel-label" class="sel-label" hidden></div>
+    <div id="tooltip3d" class="tooltip-3d hidden"><div class="tooltip-header"><strong id="tt-title"></strong><span id="tt-status" class="badge"></span></div><div class="tooltip-body" id="tt-body"></div></div>
+    <div id="loading" class="loading" hidden><div class="spinner"></div><span id="loading-text">Procesando geometría…</span></div>
+    <div id="msg" class="msg" role="status">Sin conexión. Inicia sesión desde «Conexión» o explora el modelo demo.</div>
+  </section>
+
+  <!-- COLUMNA DERECHA: inspector, grafo y flujo -->
+  <aside class="panel-right">
+    <div class="tabs-header" role="tablist">
+      <button class="tab-btn active" role="tab" data-target="tab-inspector" aria-selected="true"><span data-ic="info"></span>Inspector</button>
+      <button class="tab-btn" role="tab" data-target="tab-graph" aria-selected="false"><span data-ic="share"></span>Grafo</button>
+      <button class="tab-btn" role="tab" data-target="tab-workflow" aria-selected="false"><span data-ic="flow"></span>Flujo</button>
+    </div>
+    <div class="tab-content active" id="tab-inspector" role="tabpanel">
+      <div id="detail"><div class="empty-state"><span data-ic="cube" data-size="32"></span><p>Selecciona un elemento en el visor 3D o en el árbol.</p></div></div>
+      <h3 class="sec">Anomalías abiertas</h3><div id="anoms" class="list">—</div>
+    </div>
+    <div class="tab-content" id="tab-graph" role="tabpanel">
+      <div class="graph-bar"><label class="check"><input type="checkbox" id="g-ifc"> Mostrar nodos técnicos IFC</label><button class="btn small" id="g-reheat">Reordenar</button></div>
+      <div class="graph-container"><canvas id="knowledge-canvas" aria-label="Grafo de conocimiento"></canvas>
+        <div class="graph-legend"><span class="gl-item"><span class="gl-dot blue"></span> BIM</span><span class="gl-item"><span class="gl-dot green"></span> Ubicación</span><span class="gl-item"><span class="gl-dot orange"></span> IoT</span><span class="gl-item"><span class="gl-dot red"></span> SST / Alerta</span></div>
+        <div id="g-tip" class="g-tip" hidden></div></div>
+    </div>
+    <div class="tab-content" id="tab-workflow" role="tabpanel">
+      <div id="wf-summary" class="wf-summary">Selecciona un equipo para ver su flujo operativo.</div>
+      <div class="workflow-timeline" id="wf-timeline"></div>
+      <h3 class="sec">Actividad en vivo</h3><div id="live" class="list live"><div class="muted">Sin sesión: la actividad aparece al conectar.</div></div>
+    </div>
+  </aside>
+</main>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<script type="module" src="./src/main.ts"></script>
+</body></html>

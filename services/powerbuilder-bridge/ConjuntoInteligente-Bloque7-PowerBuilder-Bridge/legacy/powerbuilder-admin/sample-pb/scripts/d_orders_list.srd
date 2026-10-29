@@ -1,0 +1,16 @@
+$PBExportHeader$d_orders_list.srd
+release 22;
+datawindow(units=0 timer_interval=0 color=16777215 processing=0 HTMLDW=no print.printername="" print.documentname="" print.documentsperpage="1" print.attr="0" print.outputname="" print.windowframe="no" print.windowname="" print.overwrite="no" print.colormode="0" print.quality="0" print.scale="100" print.username="" print.copies="1" print.filename="")
+header(height=68 color="536870912")
+summary(height=0 color="536870912")
+footer(height=0 color="536870912")
+detail(height=92 color="536870912")
+table(column=(type=char(36) updatewhereclause=yes name=id dbname="id") column=(type=char(20) updatewhereclause=yes name=codigo dbname="codigo") column=(type=char(200) updatewhereclause=yes name=titulo dbname="titulo") column=(type=char(30) updatewhereclause=yes name=categoria dbname="categoria") column=(type=char(20) updatewhereclause=yes name=severidad dbname="severidad") column=(type=char(20) updatewhereclause=yes name=estado dbname="estado") column=(type=char(50) updatewhereclause=yes name=area dbname="area") column=(type=char(50) updatewhereclause=yes name=zona dbname="zona") column=(type=char(60) updatewhereclause=yes name=reporto dbname="reporto") column=(type=char(80) updatewhereclause=yes name=proveedor dbname="proveedor") column=(type=decimal(2) updatewhereclause=yes name=costoCop dbname="costoCop") column=(type=char(30) updatewhereclause=yes name=creadaEn dbname="creadaEn") column=(type=char(30) updatewhereclause=yes name=actualizadaEn dbname="actualizadaEn") retrieve="PBSELECT( VERSION(400) TABLE(NAME=\"orders\" ) ARG(NAME=\"estado\" TYPE=\"string\" ) ARG(NAME=\"categoria\" TYPE=\"string\" ) ARG(NAME=\"busqueda\" TYPE=\"string\" ) )")
+text(band=header alignment="0" text="Código" border="0" color="0" x="9" y="8" height="68" width="150" name=t_codigo)
+text(band=header alignment="0" text="Título" border="0" color="0" x="159" y="8" height="68" width="400" name=t_titulo)
+text(band=header alignment="0" text="Estado" border="0" color="0" x="559" y="8" height="68" width="150" name=t_estado)
+text(band=header alignment="0" text="Costo" border="0" color="0" x="709" y="8" height="68" width="150" name=t_costo)
+column(band=detail id=2 alignment="0" tabsequence=10 border="0" color="0" x="9" y="8" height="84" width="150" name=codigo)
+column(band=detail id=3 alignment="0" tabsequence=20 border="0" color="0" x="159" y="8" height="84" width="400" name=titulo)
+column(band=detail id=6 alignment="0" tabsequence=50 border="0" color="0" x="559" y="8" height="84" width="150" name=estado)
+column(band=detail id=11 alignment="2" tabsequence=100 border="0" color="0" x="709" y="8" height="84" width="150" format="#,##0" name=costoCop)

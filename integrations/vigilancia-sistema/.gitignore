@@ -1,0 +1,7 @@
+.env
+**/.env
+infrastructure/pki/
+node_modules/
+.venv/
+__pycache__/
+*.pyc

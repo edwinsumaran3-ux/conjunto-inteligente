@@ -1,0 +1,16 @@
+# El contexto de build NO debe arrastrar dependencias del anfitrión ni artefactos: pisarían los de la imagen
+**/node_modules
+frontend/dist
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.git
+.github
+vendor
+samples
+*.zip
+*.md
+docker-compose*.yml
+.env
+.env.*
+!.env.example

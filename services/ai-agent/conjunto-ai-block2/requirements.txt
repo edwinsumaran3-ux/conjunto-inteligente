@@ -1,0 +1,13 @@
+# Runtime del AI Orchestrator (fijado). Equivale a [project.dependencies] de pyproject.toml.
+fastapi[standard]==0.115.6
+pydantic==2.10.4
+pydantic-settings==2.7.0
+httpx==0.28.1
+tenacity==9.0.0
+python-dotenv==1.0.1
+numpy==2.2.1
+opencv-python-headless==4.10.0.84
+shapely==2.0.6
+trimesh==4.5.3
+pymupdf==1.25.1
+pytesseract==0.3.13

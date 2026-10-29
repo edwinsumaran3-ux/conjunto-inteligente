@@ -1,0 +1,4 @@
+- name: Build signed firmware
+  run: |
+    export SECURE_BOOT_SIGNING_KEY=${{ secrets.ESP32_SIGNING_KEY_PATH }}
+    pio run -e esp32dev-release

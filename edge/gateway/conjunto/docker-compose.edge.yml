@@ -1,0 +1,42 @@
+# Fragmento para fusionar en el docker-compose.yml de la raíz.
+# Requiere que exista el servicio `ai` (Bloque 2).
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/broker/uptime", "-C", "1", "-W", "2"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  edge:
+    build:
+      context: ./edge
+      dockerfile: Dockerfile
+    environment:
+      EDGE__MQTT_HOST: mosquitto
+      EDGE__MQTT_PORT: "1883"
+      EDGE__MQTT_TOPIC: "conjunto/+/events"
+      EDGE__FORWARD_URL: "http://ai:8000/analyze/reception"
+      EDGE__BUFFER_PATH: "/data/edge-events.db"
+      EDGE__HEALTH_PORT: "8080"
+      EDGE__LOG_LEVEL: "INFO"
+    ports:
+      - "8080:8080"
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      ai:
+        condition: service_started
+    volumes:
+      - edge-data:/data
+
+volumes:
+  mosquitto-data:
+  edge-data:

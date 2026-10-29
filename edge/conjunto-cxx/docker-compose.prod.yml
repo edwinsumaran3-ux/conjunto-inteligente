@@ -1,0 +1,52 @@
+# Overrides para producción. Combinar con:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+
+  api:
+    build:
+      target: runtime
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
+  ai:
+    environment:
+      AI__ENV: production
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+
+  postgres:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  rabbitmq:
+    restart: always
+
+  redis:
+    restart: always
+
+  web-admin:
+    restart: always
+
+  pb-bridge:
+    restart: always
+
+  edge:
+    restart: always

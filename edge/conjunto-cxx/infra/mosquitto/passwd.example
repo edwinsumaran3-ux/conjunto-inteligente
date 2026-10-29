@@ -1,0 +1,6 @@
+# Generar el archivo real con:
+#   docker run --rm -it -v "$PWD":/work eclipse-mosquitto:2.0 \
+#     mosquitto_passwd -c /work/infra/mosquitto/passwd ci
+#
+# Formato del archivo generado (NO editar a mano):
+# ci:$7$101$xxxxx$...

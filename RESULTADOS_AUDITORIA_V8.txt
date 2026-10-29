@@ -1,0 +1,15 @@
+[PASS] frontend-script: typecheck: definido
+[PASS] frontend-script: lint: definido
+[PASS] frontend-script: test: definido
+[PASS] frontend-script: build: definido
+[PASS] frontend-script: ci: definido
+[PASS] frontend-imports: 9 imports locales revisados; sin rutas faltantes
+[BLOCKED] frontend-dependencies: node_modules ausente; typecheck/build Vitest requieren instalar dependencias
+[FAIL] compose:00_ERP_Enterprise_v5/docker-compose.dev.yml: 1 problema(s): api: Dockerfile ausente /mnt/data/ci_v8_work/ConjuntoInteligente_RECUPERACION_TOTAL_FUSIONADA_v5/ConjuntoInteligente_COMPLETO_FUSIONADO_BIM_GEMELO/b09work/00_ERP_Enterprise_v5/Dockerfile
+[FAIL] compose:00_ERP_Enterprise_v5/docker-compose.test.yml: 1 problema(s): pipeline-test: Dockerfile ausente /mnt/data/ci_v8_work/ConjuntoInteligente_RECUPERACION_TOTAL_FUSIONADA_v5/ConjuntoInteligente_COMPLETO_FUSIONADO_BIM_GEMELO/b09work/00_ERP_Enterprise_v5/Dockerfile
+[PASS] compose:integrations/vigilancia-sistema/infrastructure/docker-compose.yml: 15 servicios; contextos/Dockerfiles válidos
+[FAIL] compose:edge/conjunto-cxx/docker-compose.yml: 5 problema(s): edge: contexto ausente /mnt/data/ci_v8_work/ConjuntoInteligente_RECUPERACION_TOTAL_FUSIONADA_v5/ConjuntoInteligente_COMPLETO_FUSIONADO_BIM_GEMELO/b09work/edge/conjunto-cxx/edge; api: Dockerfile ausente /mnt/data/ci_v8_work/ConjuntoInteligente_RECUPERACION_TOTAL_FUSIONADA_v5/ConjuntoInteligente_COMPLETO_FUSIONADO_BIM_GEMELO/b09work/edge/conjunto-cxx/src/Api/ConjuntoInteligente.Api/Dockerfile; ai: contexto ausente /mnt/data/ci_v8_work/ConjuntoInteligente_RECUPERACION_TOTAL_FUSIONADA_v5/ConjuntoInteligente_COMPLETO_FUSIONADO_BIM_GEMELO/b09work/edge/conjunto-cxx/ai; pb-bridge: contexto ausente /mnt/data/ci_v8_work/ConjuntoInteligente_RECUPERACION_TOTAL_FUSIONADA_v5/ConjuntoInteligente_COMPLETO_FUSIONADO_BIM_GEMELO/b09work/edge/conjunto-cxx/legacy/powerbuilder-admin/bridge; web-admin: contexto ausente /mnt/data/ci_v8_work/ConjuntoInteligente_RECUPERACION_TOTAL_FUSIONADA_v5/ConjuntoInteligente_COMPLETO_FUSIONADO_BIM_GEMELO/b09work/edge/conjunto-cxx/frontend/web-admin
+[PASS] erp-migrations: alembic.ini presente
+[FAIL] erp-container: Dockerfile ERP ausente
+
+SUMMARY PASS=8 FAIL=4 BLOCKED=1

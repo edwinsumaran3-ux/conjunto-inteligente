@@ -1,0 +1,12 @@
+# Entorno completo de ejecución local de todos los servicios Python de vigilancia.
+# Para producción cada servicio se instala desde su propio requirements.txt (ver Dockerfile).
+-c constraints.txt
+-r services/ingestion/requirements.txt
+-r services/agent-orchestrator/requirements.txt
+-r services/worker-pool/requirements.txt
+-r services/correlation-engine/requirements.txt
+-r services/incident-core/requirements.txt
+-r services/notification-service/requirements.txt
+-r services/vision-ai/requirements.txt
+-r edge-gateway/requirements.txt
+-r shared/security/requirements.txt

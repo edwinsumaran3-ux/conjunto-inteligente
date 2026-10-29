@@ -1,0 +1,23 @@
+#pragma once
+#include <Arduino.h>
+#define DEVICE_ID "ESP32-ZONE-A-001"
+#define ZONE_ID "ZONE_A"
+#define FW_VERSION "2.0.0"
+#define WIFI_SSID "CHANGE_ME"
+#define WIFI_PASSWORD "CHANGE_ME"
+#define MQTT_PRIMARY_HOST "edge-01.local"
+#define MQTT_SECONDARY_HOST "edge-02.local"
+#define MQTT_PORT 8883
+#define MQTT_USER "CHANGE_ME"
+#define MQTT_PASSWORD "CHANGE_ME"
+#define WDT_TIMEOUT_S 30
+#define TASK_STACK_SENSOR 4096
+#define TASK_STACK_NET 8192
+#define TASK_STACK_STORE 4096
+#define QUEUE_LENGTH 256
+#define BUFFER_MAX_EVENTS 256
+#define PIN_SENSOR_PIR 34
+#define PIN_SENSOR_DOOR 35
+#define PIN_TAMPER 32
+#define PIN_SENSOR_LASER 33
+#define PIN_LED_STATUS 2

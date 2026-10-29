@@ -1,0 +1,19 @@
+global:
+ scrape_interval: 10s
+scrape_configs:
+ - job_name: ingestion
+   static_configs: [{targets:["ingestion:8000"]}]
+ - job_name: edge
+   static_configs: [{targets:["edge-gateway:8000"]}]
+ - job_name: workers
+   static_configs: [{targets:["worker-pool:9100"]}]
+ - job_name: correlation
+   static_configs: [{targets:["correlation:9101"]}]
+ - job_name: incident-core
+   static_configs: [{targets:["incident-core:9104"]}]
+ - job_name: notifications
+   static_configs: [{targets:["notification-service:9103"]}]
+ - job_name: vision-ai
+   static_configs: [{targets:["vision-ai:9102"]}]
+ - job_name: agent-orchestrator
+   static_configs: [{targets:["agent-orchestrator:8000"]}]

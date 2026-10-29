@@ -1,0 +1,119 @@
+services:
+ postgres:
+  image: postgres:16.6-alpine
+  environment:
+   POSTGRES_USER: vigia
+   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+   POSTGRES_DB: vigilancia
+  volumes: ["pgdata:/var/lib/postgresql/data","./postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro"]
+  healthcheck: {test: ["CMD-SHELL","pg_isready -U vigia -d vigilancia"],interval: 5s,timeout: 3s,retries: 20}
+ db-migrate:
+  build: ./postgres
+  environment:
+   DB_DSN: "postgresql://vigia:${POSTGRES_PASSWORD}@postgres:5432/vigilancia"
+   DB_WAIT_SECONDS: "60"
+  depends_on: {postgres: {condition: service_healthy}}
+  restart: "no"
+ redis:
+  image: redis:7.4-alpine
+  command: ["redis-server","--appendonly","yes","--requirepass","${REDIS_PASSWORD:?set in .env}"]
+  volumes: ["redisdata:/data"]
+  healthcheck: {test: ["CMD","redis-cli","-a","${REDIS_PASSWORD}","ping"],interval: 5s,timeout: 3s,retries: 20}
+ rabbitmq:
+  image: rabbitmq:4.0-management
+  environment:
+   RABBITMQ_DEFAULT_USER: vigia
+   RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD:?set in .env}"
+  volumes: ["rabbitdata:/var/lib/rabbitmq"]
+  healthcheck: {test: ["CMD","rabbitmq-diagnostics","-q","ping"],interval: 10s,timeout: 5s,retries: 20}
+ mosquitto:
+  image: eclipse-mosquitto:2.0.21
+  volumes: ["./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro","mqttdata:/mosquitto/data"]
+  healthcheck: {test: ["CMD-SHELL","mosquitto_ctrl dynsec getAnonymousGroup || true"],interval: 15s,timeout: 5s,retries: 5}
+ ingestion:
+  build: ../services/ingestion
+  environment:
+   REDIS_HOST: redis
+   INGEST_API_KEY: "${INGEST_API_KEY:-}"
+   REDIS_PASSWORD: "${REDIS_PASSWORD}"
+   RABBIT_URL: "amqp://vigia:${RABBITMQ_PASSWORD}@rabbitmq/"
+   DB_DSN: "postgresql://vigia:${POSTGRES_PASSWORD}@postgres:5432/vigilancia"
+  depends_on: {redis: {condition: service_healthy},rabbitmq: {condition: service_healthy},postgres: {condition: service_healthy},db-migrate: {condition: service_completed_successfully}}
+  ports: ["8000:8000"]
+ edge-gateway:
+  build: ../edge-gateway
+  environment:
+   GATEWAY_ID: edge-01
+   INGEST_API_KEY: "${INGEST_API_KEY:-}"
+   BUFFER_MAX_EVENTS: "${BUFFER_MAX_EVENTS:-50000}"
+   MQTT_HOST: mosquitto
+   PEERS: http://ingestion:8000
+   RABBIT_URL: "amqp://vigia:${RABBITMQ_PASSWORD}@rabbitmq/"
+  depends_on: {mosquitto: {condition: service_started},ingestion: {condition: service_started},rabbitmq: {condition: service_healthy}}
+  ports: ["8001:8000"]
+  volumes: ["edgebuffer:/var/lib/edge"]
+ worker-pool:
+  build: ../services/worker-pool
+  environment:
+   RABBIT_URL: "amqp://vigia:${RABBITMQ_PASSWORD}@rabbitmq/"
+   DB_DSN: "postgresql://vigia:${POSTGRES_PASSWORD}@postgres:5432/vigilancia"
+  depends_on: {rabbitmq: {condition: service_healthy},postgres: {condition: service_healthy},db-migrate: {condition: service_completed_successfully}}
+  expose: ["9100"]
+ correlation:
+  build: ../services/correlation-engine
+  environment:
+   RABBIT_URL: "amqp://vigia:${RABBITMQ_PASSWORD}@rabbitmq/"
+   DB_DSN: "postgresql://vigia:${POSTGRES_PASSWORD}@postgres:5432/vigilancia"
+   REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+  depends_on: {rabbitmq: {condition: service_healthy},postgres: {condition: service_healthy},db-migrate: {condition: service_completed_successfully},redis: {condition: service_healthy}}
+  expose: ["9101"]
+ incident-core:
+  build: ../services/incident-core
+  environment:
+   RABBIT_URL: "amqp://vigia:${RABBITMQ_PASSWORD}@rabbitmq/"
+   DB_DSN: "postgresql://vigia:${POSTGRES_PASSWORD}@postgres:5432/vigilancia"
+  depends_on: {rabbitmq: {condition: service_healthy},postgres: {condition: service_healthy},db-migrate: {condition: service_completed_successfully}}
+  expose: ["9104"]
+ agent-orchestrator:
+  build: ../services/agent-orchestrator
+  environment:
+   RABBIT_URL: "amqp://vigia:${RABBITMQ_PASSWORD}@rabbitmq/"
+   DB_DSN: "postgresql://vigia:${POSTGRES_PASSWORD}@postgres:5432/vigilancia"
+   CONJUNTO_AI_URL: "${CONJUNTO_AI_URL:-http://host.docker.internal:8000}"
+   OPERATOR_TOKEN: "${OPERATOR_TOKEN:?set in .env}"
+   REQUIRE_AUTH_FOR_READS: "${REQUIRE_AUTH_FOR_READS:-false}"
+   EQUIPMENT_HMAC_KEYS_JSON: "${EQUIPMENT_HMAC_KEYS_JSON:-}"
+   CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:5173}"
+  depends_on: {rabbitmq: {condition: service_healthy},postgres: {condition: service_healthy},db-migrate: {condition: service_completed_successfully}}
+  ports: ["8002:8000"]
+ notification-service:
+  build: ../services/notification-service
+  environment:
+   RABBIT_URL: "amqp://vigia:${RABBITMQ_PASSWORD}@rabbitmq/"
+   NOTIFY_WEBHOOK_URL: "${NOTIFY_WEBHOOK_URL:-}"
+  depends_on: {rabbitmq: {condition: service_healthy}}
+  expose: ["9103"]
+ vision-ai:
+  build: ../services/vision-ai
+  environment:
+   AI_MODELS: "${AI_MODELS:-}"
+  ports: ["9102:9102"]
+ dashboard:
+  image: node:22-alpine
+  working_dir: /app
+  volumes: ["../dashboard:/app"]
+  command: ["sh","-c","npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0"]
+  environment: {VITE_API_URL: http://localhost:8000,VITE_EDGE_URL: http://localhost:8001,VITE_AGENT_URL: http://localhost:8002}
+  ports: ["5173:5173"]
+  depends_on: [ingestion,edge-gateway,agent-orchestrator]
+ prometheus:
+  image: prom/prometheus:v3.1.0
+  volumes: ["./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+  ports: ["9090:9090"]
+volumes:
+ pgdata: {}
+ ollamadata: {}
+ redisdata: {}
+ rabbitdata: {}
+ mqttdata: {}
+ edgebuffer: {}

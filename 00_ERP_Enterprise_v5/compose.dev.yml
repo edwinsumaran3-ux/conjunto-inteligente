@@ -1,0 +1,53 @@
+name: conjunto-inteligente
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: conjunto-inteligente-redis
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - conjunto_inteligente_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: conjunto-inteligente-api:dev
+    container_name: conjunto-inteligente-migrate
+    env_file: .env
+    environment:
+      MIGRATION_DATABASE_URL: postgresql+asyncpg://${PG_MIGRATOR_USER}:${PG_MIGRATOR_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DATABASE}
+      APP_DB_ROLE: ${APP_DB_ROLE}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["python", "scripts/apply_sql_migrations.py"]
+    restart: "no"
+
+  api:
+    image: conjunto-inteligente-api:dev
+    container_name: conjunto-inteligente-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${APP_DB_ROLE}:${APP_DB_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DATABASE}
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: development
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    restart: unless-stopped
+
+volumes:
+  conjunto_inteligente_redis:

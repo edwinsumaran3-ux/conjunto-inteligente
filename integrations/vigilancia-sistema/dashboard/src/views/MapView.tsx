@@ -1,0 +1,1 @@
+export default function MapView(){return <div className="aspect-video rounded-xl border border-ops-panel2 bg-ops-panel grid place-items-center text-ops-inkdim">Mapa de zonas: integrar coordenadas/planos reales.</div>}

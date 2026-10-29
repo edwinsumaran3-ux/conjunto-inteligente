@@ -1,0 +1,37 @@
+{
+  "name": "erp-enterprise-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:stack": "node scripts/dev-stack.mjs",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "node scripts/lint.mjs",
+    "audit": "npm audit --audit-level=high",
+    "ci": "npm run typecheck && npm run lint && npm test -- --passWithNoTests && npm run build && npm run build:bim",
+    "dev:bim": "vite --config vite.bim.config.ts",
+    "build:bim": "vite build --config vite.bim.config.ts",
+    "e2e:browser": "bash ../scripts/run_viewer_browser_e2e.sh"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.186.1",
+    "web-ifc": "^0.0.78",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.186.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://vigilancia.local/schemas/security-event.schema.json",
+  "title":"SecurityEvent","type":"object","additionalProperties":false,
+  "required":["event_id","device_id","sequence_number","timestamp","type","priority","payload"],
+  "properties":{
+    "event_id":{"type":"string","format":"uuid"},"device_id":{"type":"string","minLength":1,"maxLength":128},
+    "sequence_number":{"type":"integer","minimum":0},"timestamp":{"type":"integer","minimum":0},
+    "type":{"type":"string","enum":["MOTION","TAMPER","DOOR","CAMERA_OFFLINE","CAMERA_DEGRADED","CAMERA_FAILOVER","SENSOR_FAIL","HEARTBEAT","HEARTBEAT_LOST","ANOMALY","MANUAL","AI_UNCERTAIN","LASER_TRIPWIRE","IR_BARRIER","PERIMETER_BREACH","DEVICE_DISCOVERED"]},
+    "priority":{"type":"string","enum":["CRITICAL","SECURITY","ANOMALY","TELEMETRY"]},
+    "zone":{"type":"string","maxLength":128},"payload":{"type":"object"},"signature":{"type":"string"}
+  }
+}

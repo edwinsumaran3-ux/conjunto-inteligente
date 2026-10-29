@@ -1,0 +1,57 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    restart: unless-stopped
+    ports:
+      - "8883:8883"
+    environment:
+      EDGE_MQTT_USERNAME: ${EDGE_MQTT_USERNAME:?required}
+      EDGE_MQTT_PASSWORD: ${EDGE_MQTT_PASSWORD:?required}
+    volumes:
+      - ./infra/mosquitto/mosquitto.prod.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./secrets/mosquitto:/mosquitto/config/secrets:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h 127.0.0.1 -p 8883 --cafile /mosquitto/config/secrets/ca.crt -u $$EDGE_MQTT_USERNAME -P $$EDGE_MQTT_PASSWORD -t '$$SYS/broker/uptime' -C 1 -W 3 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  edge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      EDGE__MQTT_HOST: mosquitto
+      EDGE__MQTT_PORT: "8883"
+      EDGE__MQTT_TOPIC: "conjunto/+/events"
+      EDGE__MQTT_USE_TLS: "true"
+      EDGE__MQTT_CA_FILE: /run/secrets/ca.crt
+      EDGE__MQTT_USERNAME: ${EDGE_MQTT_USERNAME:?required}
+      EDGE__MQTT_PASSWORD: ${EDGE_MQTT_PASSWORD:?required}
+      EDGE__DEVICE_ID: ${EDGE_DEVICE_ID:?required}
+      EDGE__TENANT_ID: ${EDGE_TENANT_ID:?required}
+      EDGE__DEVICE_PRIVATE_KEY: /run/secrets/device-private.pem
+      EDGE__COMMAND_VERIFY_KEY: ${EDGE_COMMAND_VERIFY_KEY:?required}
+      EDGE__FORWARD_URL: ${EDGE_CORE_URL:?required}/api/v1/edge-transport/events
+      EDGE__API_KEY: ${EDGE_API_KEY:-}
+      EDGE__BUFFER_PATH: /data/edge-events.db
+    secrets:
+      - ca.crt
+      - device-private.pem
+    volumes:
+      - edge-data:/data
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+
+secrets:
+  ca.crt:
+    file: ./secrets/ca.crt
+  device-private.pem:
+    file: ./secrets/device-private.pem
+
+volumes:
+  mosquitto-data:
+  edge-data:

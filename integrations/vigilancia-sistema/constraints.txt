@@ -1,0 +1,14 @@
+# Versiones únicas para TODO el monorrepo Python de vigilancia.
+# Uso: pip install -r services/<svc>/requirements.txt -c constraints.txt
+# Una prueba (tests/test_dependencies.py) verifica que ningún requirements.txt contradiga este archivo.
+aio-pika==9.5.5
+asyncpg==0.30.0
+cryptography==44.0.0
+fastapi==0.115.6
+httpx==0.28.1
+paho-mqtt==2.1.0
+prometheus-client==0.21.1
+pydantic==2.10.4
+python-multipart==0.0.20
+redis==5.2.1
+uvicorn==0.34.0
