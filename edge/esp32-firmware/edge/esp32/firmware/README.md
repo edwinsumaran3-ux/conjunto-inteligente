@@ -167,3 +167,75 @@ física y el tamaño de la imagen.
 | GPIO25 | Tamper |
 
 Modificables en `src/main.cpp` (`PIN_PIR`, `PIN_MAGNETIC`, `PIN_TAMPER`).
+
+## Perfil para sensores del conjunto
+
+El entorno `esp32dev-sensors` agrega el montaje de la guía de cableado sin reemplazar
+el perfil original `esp32dev`. Usa un ESP32 clásico compatible con ESP-IDF, como
+ESP32-WROOM-32 DevKit. No uses este binario en ESP32-C3, S2, S3 o C6 sin adaptar y
+verificar el mapeo de pines.
+
+| Sensor | Pin en la guía | Interfaz configurada | Evento MQTT |
+|---|---|---|---|
+| DHT22 | GPIO4 | DHT de una señal, lectura cada 5 s | `sensor.environment` |
+| DS18B20 | GPIO15 | Bus 1-Wire con RMT; pull-up externo requerido | `sensor.water_temperature` |
+| Flotador de nivel | GPIO27 | Entrada digital activa en bajo, publica al iniciar y al cambiar | `sensor.water_level` |
+| ACS712 | GPIO35 | ADC1 canal 7; publica el promedio de 16 lecturas ADC crudas | `sensor.current_raw` |
+| Presión analógica | GPIO34 | ADC1 canal 6; publica el promedio de 16 lecturas ADC crudas | `sensor.pressure_raw` |
+| PZEM-004T v3.0 | GPIO16 TX / GPIO17 RX | UART2, 9600 baudios, 8-N-1 | `sensor.energy` |
+
+Las mediciones periódicas se toman cada cinco segundos y se publican en el topic
+`conjunto/<TENANT_ID>/events`, con el sobre de eventos que ya utiliza el gateway.
+El PZEM responde a la consulta de registros Modbus RTU; si no está conectado, los
+demás sensores siguen funcionando.
+
+### Conexión de baja tensión y límites eléctricos
+
+- Alimenta el ESP32 por USB y conecta GND común entre la placa y los módulos de
+  sensores de baja tensión.
+- DHT22: VCC a 3V3, GND a GND y DATA a GPIO4. Añade una resistencia de 4.7 kOhm
+  entre DATA y 3V3 si el módulo no la incorpora.
+- DS18B20: DATA a GPIO15; coloca una resistencia externa de 4.7 kOhm entre DATA
+  y 3V3. GPIO15 es un pin de configuración de arranque del ESP32 clásico: si la
+  placa no arranca de forma estable con el sensor conectado, mueve DATA a un GPIO
+  libre y cambia el pin en `src/sensors/installation_sensors.cpp`.
+- Flotador: señal a GPIO27, con el contacto de alarma llevando la entrada a GND.
+  El perfil interpreta nivel bajo como “agua detectada”; invierte esa lógica en
+  `InstallationSensors::poll` si el módulo instalado opera al contrario.
+- ACS712 y presión: GPIO35/GPIO34 son entradas ADC solamente. **Nunca conectes
+  directamente a una entrada ESP32 una salida que pueda superar 3.3 V.** El
+  ACS712 suele alimentarse a 5 V; instala y dimensiona un acondicionador/divisor
+  de nivel apropiado y seguro, comprueba la salida máxima del sensor con
+  instrumentos antes de conectar y recalibra para el modelo exacto. El software
+  informa cuentas ADC sin convertirlas a amperios ni a unidades de presión.
+- PZEM, lado de comunicación: TX del PZEM hacia RX GPIO17; RX del PZEM hacia TX
+  GPIO16. Verifica niveles lógicos y el manual de la versión exacta del módulo.
+- **El PZEM-004T se utiliza para medir red eléctrica. Su lado de tensión/corriente
+  puede implicar voltajes letales. No conectes cables de red en una protoboard ni
+  manipules una instalación energizada.** La instalación de red, aislamiento,
+  pinza y módulo debe hacerla personal calificado. Trabaja únicamente con el
+  circuito desenergizado y la instalación verificada.
+
+### Compilar y probar este perfil
+
+Desde esta carpeta del firmware:
+
+```powershell
+.\.venv\Scripts\platformio.exe run -e esp32dev-sensors
+.\.venv\Scripts\platformio.exe test -e native
+```
+
+La primera compilación descarga los componentes declarados en
+`src/idf_component.yml`. Configura SSID, contraseña, broker MQTT TLS, usuario,
+contraseña, tenant e ID del equipo en una copia local de `include/secrets.example.h`
+llamada `include/secrets.h`; ese archivo está ignorado por Git y no debe compartirse.
+Sin credenciales el firmware compila, pero Wi-Fi y las publicaciones permanecen
+desconectados.
+
+La plantilla de PlatformIO de este proyecto reserva 2 MB de flash. Confirma la
+capacidad real de la placa y el módulo antes de cargar el firmware. El perfil de
+desarrollo no habilita secure boot, pero **no se ha cargado ni probado este perfil
+en la placa física**; compilar no verifica el cableado ni la seguridad de las
+lecturas. No ejecutes el objetivo `upload` hasta identificar el chip, confirmar la
+flash y revisar todas las conexiones. Nunca habilites las opciones irreversibles
+de firma/flash encryption a modo de prueba.

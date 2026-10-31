@@ -2,4 +2,6 @@ include/secrets.h
 keys/
 .pio/
 .venv/
+managed_components/
 sdkconfig.esp32dev-release
+sdkconfig.esp32dev-sensors

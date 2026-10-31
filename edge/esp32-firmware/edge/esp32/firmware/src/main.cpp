@@ -18,18 +18,24 @@
 #include "logging.hpp"
 #include "mqtt_manager.hpp"
 #include "ota_manager.hpp"
+#if defined(INSTALLATION_SENSOR_MODE)
+#include "sensors/installation_sensors.hpp"
+#else
 #include "sensors/magnetic_sensor.hpp"
 #include "sensors/pir_sensor.hpp"
 #include "sensors/tamper_sensor.hpp"
+#endif
 #include "wifi_manager.hpp"
 
 namespace {
 constexpr const char* TAG = "main";
 
-// Pines por defecto (ajustar según placa).
+#if !defined(INSTALLATION_SENSOR_MODE)
+// Pines del perfil original de seguridad.
 constexpr int PIN_PIR      = 27;
 constexpr int PIN_MAGNETIC = 26;
 constexpr int PIN_TAMPER   = 25;
+#endif
 
 #if defined(FW_RELEASE_BUILD)
 bool has_release_configuration(const fw::Config& config) {
@@ -52,10 +58,14 @@ bool has_release_configuration(const fw::Config& config) {
 
 // Contexto compartido con el task de sensores (declarado a nivel de archivo).
 struct SensorCtx {
+#if defined(INSTALLATION_SENSOR_MODE)
+    fw::InstallationSensors* installation;
+#else
     fw::PirSensor* pir;
     fw::MagneticSensor* magnetic;
     fw::TamperSensor* tamper;
     fw::EventPublisher* publisher;
+#endif
 };
 
 void sensor_task(void* arg) {
@@ -65,6 +75,10 @@ void sensor_task(void* arg) {
         const std::uint32_t now_ms = static_cast<std::uint32_t>(
             esp_timer_get_time() / 1000);
 
+#if defined(INSTALLATION_SENSOR_MODE)
+        ctx->installation->poll(now_ms);
+        vTaskDelay(pdMS_TO_TICKS(50));
+#else
         // PIR (bloquea hasta 50 ms en la cola; actúa como cadencia del loop)
         std::uint32_t pir_ts = 0;
         if (ctx->pir->wait_event(&pir_ts, 50)) {
@@ -97,6 +111,7 @@ void sensor_task(void* arg) {
                     published ? "publicado" : "no publicado",
                     tampered ? "ALERTA" : "ok");
         }
+#endif
     }
 }
 }  // namespace
@@ -185,7 +200,14 @@ extern "C" void app_main() {
     fw::HeartbeatTask heartbeat{publisher, static_cast<std::uint32_t>(config.heartbeat_period_s)};
     heartbeat.start();
 
-    // ── Sensores ─────────────────────────────────────────
+#if defined(INSTALLATION_SENSOR_MODE)
+    // ── Sensores del conjunto ────────────────────────────
+    fw::InstallationSensors installation{publisher};
+    installation.init();
+
+    static SensorCtx sensor_ctx{&installation};
+#else
+    // ── Sensores de seguridad ────────────────────────────
     fw::PirSensor pir{{PIN_PIR, static_cast<std::uint32_t>(config.pir_debounce_ms), 500}};
     pir.init();
 
@@ -197,9 +219,16 @@ extern "C" void app_main() {
     fw::TamperSensor tamper{{PIN_TAMPER}};
     tamper.init();
 
-    // ── Task de sensores ─────────────────────────────────
     static SensorCtx sensor_ctx{&pir, &magnetic, &tamper, &publisher};
-    xTaskCreate(sensor_task, "sensors", 4096, &sensor_ctx, 5, nullptr);
+#endif
+
+    // ── Task de sensores ─────────────────────────────────
+#if defined(INSTALLATION_SENSOR_MODE)
+    constexpr std::uint32_t sensor_task_stack_size = 8192;
+#else
+    constexpr std::uint32_t sensor_task_stack_size = 4096;
+#endif
+    xTaskCreate(sensor_task, "sensors", sensor_task_stack_size, &sensor_ctx, 5, nullptr);
 
     // ── OTA (opcional, según configuración) ─────────────
     if (!config.ota_manifest_url.empty()) {
